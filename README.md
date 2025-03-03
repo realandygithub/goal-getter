@@ -4,8 +4,8 @@ Goal-getter is a web app that helps you achieve your goals by logging your daily
 
 ## TODO
 
-- [ ] Make it deploy (vercel)
-- [ ] Scaffold basic ui with mock data
+- [x] Make it deploy (vercel)
+- [x] Scaffold basic ui with mock data
 - [ ] Add a database (vercel postgres)
 - [ ] Add authentication (clerk)
 - [ ] Error management (sentry)
