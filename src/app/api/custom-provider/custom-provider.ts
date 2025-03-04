@@ -1,8 +1,11 @@
 import { type LanguageModelV1, type EmbeddingModelV1 } from "@ai-sdk/provider";
 import {
   OpenAICompatibleChatLanguageModel,
+  type OpenAICompatibleChatSettings,
   OpenAICompatibleCompletionLanguageModel,
+  type OpenAICompatibleCompletionSettings,
   OpenAICompatibleEmbeddingModel,
+  type OpenAICompatibleEmbeddingSettings,
 } from "@ai-sdk/openai-compatible";
 import {
   type FetchFunction,
@@ -12,10 +15,7 @@ import {
 import {
   type AIgatewayCompletionModelId,
   type AIgatewayChatModelId,
-  type AIgatewayChatSettings,
-  type AIgatewayCompletionSettings,
   type AIgatewayEmbeddingModelId,
-  type AIgatewayEmbeddingSettings,
 } from "./custom-chat-settings";
 // Import your model id and settings here.
 
@@ -49,7 +49,7 @@ Creates a model for text generation.
 */
   (
     modelId: AIgatewayChatModelId,
-    settings?: AIgatewayChatSettings,
+    settings?: OpenAICompatibleChatSettings,
   ): LanguageModelV1;
 
   /**
@@ -57,7 +57,7 @@ Creates a chat model for text generation.
 */
   chatModel(
     modelId: AIgatewayChatModelId,
-    settings?: AIgatewayChatSettings,
+    settings?: OpenAICompatibleChatSettings,
   ): LanguageModelV1;
 
   /**
@@ -65,7 +65,7 @@ Creates a completion model for text generation.
 */
   completionModel(
     modelId: AIgatewayCompletionModelId,
-    settings?: AIgatewayCompletionSettings,
+    settings?: OpenAICompatibleCompletionSettings,
   ): LanguageModelV1;
 
   /**
@@ -73,7 +73,7 @@ Creates a text embedding model for text generation.
 */
   textEmbeddingModel(
     modelId: AIgatewayEmbeddingModelId,
-    settings?: AIgatewayEmbeddingSettings,
+    settings?: OpenAICompatibleEmbeddingSettings,
   ): EmbeddingModelV1<string>;
 }
 
@@ -114,7 +114,7 @@ export function createAIgatewayProvider(
 
   const createChatModel = (
     modelId: AIgatewayChatModelId,
-    settings: AIgatewayChatSettings = {},
+    settings: OpenAICompatibleChatSettings = {},
   ) => {
     return new OpenAICompatibleChatLanguageModel(modelId, settings, {
       ...getCommonModelConfig("chat"),
@@ -124,7 +124,7 @@ export function createAIgatewayProvider(
 
   const createCompletionModel = (
     modelId: AIgatewayCompletionModelId,
-    settings: AIgatewayCompletionSettings = {},
+    settings: OpenAICompatibleCompletionSettings = {},
   ) =>
     new OpenAICompatibleCompletionLanguageModel(
       modelId,
@@ -134,7 +134,7 @@ export function createAIgatewayProvider(
 
   const createTextEmbeddingModel = (
     modelId: AIgatewayEmbeddingModelId,
-    settings: AIgatewayEmbeddingSettings = {},
+    settings: OpenAICompatibleEmbeddingSettings = {},
   ) =>
     new OpenAICompatibleEmbeddingModel(
       modelId,
@@ -144,7 +144,7 @@ export function createAIgatewayProvider(
 
   const provider = (
     modelId: AIgatewayChatModelId,
-    settings?: AIgatewayChatSettings,
+    settings?: OpenAICompatibleChatSettings,
   ) => createChatModel(modelId, settings);
 
   provider.completionModel = createCompletionModel;
