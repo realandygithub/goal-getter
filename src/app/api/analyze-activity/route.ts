@@ -13,6 +13,10 @@ if (customBaseUrl) {
   console.log(`Using custom OpenAI base URL: ${customBaseUrl}`);
 }
 
+// Configure the OpenAI provider with custom base URL if available
+// The openai function from @ai-sdk/openai automatically uses OPENAI_BASE_URL
+// from environment variables if it's set
+
 interface Message extends AIMessage {
   id: string;
 }
@@ -73,14 +77,18 @@ export async function POST(req: Request) {
       model,
       system: systemPrompt,
       prompt: lastMessage,
-      onError: (error) => {
-        console.error("Error in activity analysis:", error);
+      onError: (err) => {
+        const errorMessage =
+          err instanceof Error ? err.message : JSON.stringify(err);
+        console.error("Error in activity analysis:", errorMessage);
       },
     });
 
     return stream.toDataStreamResponse();
-  } catch (error) {
-    console.error("Error in activity analysis:", error);
+  } catch (err) {
+    const errorMessage =
+      err instanceof Error ? err.message : JSON.stringify(err);
+    console.error("Error in activity analysis:", errorMessage);
     return NextResponse.json(
       { error: "There was an error processing your request" },
       { status: 500 },
