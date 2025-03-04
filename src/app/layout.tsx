@@ -6,8 +6,9 @@ import { Inter } from "next/font/google";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Work Activity Tracker",
-  description: "Track your daily work activities and compare with your goals",
+  title: "Goal Getter",
+  description:
+    "Turn your daily work into measurable success! Goal Getter helps you seamlessly track activities, visualize progress, and align your efforts with your goals with AI powered insights.",
 };
 
 export default function RootLayout({

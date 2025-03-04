@@ -47,20 +47,23 @@ export default function ActivityLogger() {
   const [isRecording, setIsRecording] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [isTranscribing, setIsTranscribing] = useState(false);
+  const [localInput, setLocalInput] = useState("");
   const recognitionRef = useRef<SpeechRecognition | null>(null);
 
-  const { messages, input, handleInputChange, handleSubmit, isLoading } =
-    useChat({
-      api: "/api/analyze-activity",
-      initialMessages: [
-        {
-          id: "welcome",
-          role: "assistant",
-          content:
-            "Hi there! Tell me what you've accomplished today, and I'll help analyze how it aligns with your goals.",
-        },
-      ],
-    });
+  const { messages, append, status } = useChat({
+    api: "/api/analyze-activity",
+    initialMessages: [
+      {
+        id: "welcome",
+        role: "assistant",
+        content:
+          "Hi there! Tell me what you've accomplished today, and I'll help analyze how it aligns with your goals.",
+      },
+    ],
+  });
+
+  // Check if the AI is currently processing or streaming a response
+  const isProcessing = status === "submitted" || status === "streaming";
 
   useEffect(() => {
     if ("webkitSpeechRecognition" in window || "SpeechRecognition" in window) {
@@ -126,14 +129,47 @@ export default function ActivityLogger() {
     }
   };
 
+  const submitText = () => {
+    const textToSubmit = isTranscribing ? transcript : localInput;
+
+    if (textToSubmit.trim()) {
+      // Use append to add a user message and handle the Promise
+      append({
+        role: "user",
+        content: textToSubmit,
+      }).catch((error) => {
+        console.error("Error sending message:", error);
+      });
+
+      // Clear the input
+      if (isTranscribing) {
+        setTranscript("");
+        setIsTranscribing(false);
+      } else {
+        setLocalInput("");
+      }
+    }
+  };
+
   const handleVoiceSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (transcript.trim()) {
-      const formData = new FormData(e.currentTarget);
-      formData.set("input", transcript);
-      handleSubmit(e);
-      setTranscript("");
+    submitText();
+  };
+
+  const handleSendClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    submitText();
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      submitText();
     }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setLocalInput(e.target.value);
   };
 
   return (
@@ -193,10 +229,11 @@ export default function ActivityLogger() {
             <div className="flex gap-2">
               <Textarea
                 placeholder="Type what you've accomplished today..."
-                value={isTranscribing ? transcript : input}
+                value={isTranscribing ? transcript : localInput}
                 onChange={isTranscribing ? undefined : handleInputChange}
+                onKeyDown={handleKeyDown}
                 className="min-h-[80px]"
-                disabled={isTranscribing}
+                disabled={isTranscribing || isProcessing}
               />
             </div>
             <div className="flex justify-between">
@@ -205,6 +242,7 @@ export default function ActivityLogger() {
                 variant={isRecording ? "destructive" : "outline"}
                 size="icon"
                 onClick={toggleRecording}
+                disabled={isProcessing}
               >
                 {isRecording ? (
                   <MicOff className="h-5 w-5" />
@@ -224,25 +262,20 @@ export default function ActivityLogger() {
                       setIsTranscribing(false);
                       setIsRecording(false);
                     }}
+                    disabled={isProcessing}
                   >
                     Cancel
                   </Button>
                 )}
                 <Button
-                  type={isTranscribing ? "button" : "submit"}
-                  disabled={isLoading || (isTranscribing && !transcript.trim())}
-                  onClick={
-                    isTranscribing
-                      ? (e) => {
-                          e.preventDefault();
-                          handleVoiceSubmit(
-                            e as unknown as React.FormEvent<HTMLFormElement>,
-                          );
-                        }
-                      : undefined
+                  type="button"
+                  disabled={
+                    isProcessing ||
+                    (isTranscribing ? !transcript.trim() : !localInput.trim())
                   }
+                  onClick={handleSendClick}
                 >
-                  {isLoading ? (
+                  {isProcessing ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       Processing...
