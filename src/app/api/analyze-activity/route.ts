@@ -1,6 +1,6 @@
-import { openai } from "@ai-sdk/openai";
 import { type Message as AIMessage, streamText } from "ai";
 import { NextResponse } from "next/server";
+import { AIgatewayProvider } from "../custom-provider/custom-provider";
 
 // Check if OpenAI API key is configured
 if (!process.env.OPENAI_API_KEY) {
@@ -64,17 +64,10 @@ export async function POST(req: Request) {
       Keep your responses concise, friendly, and actionable.
     `;
 
-    // Use the model specified in environment variables or default to gpt-4o
-    const modelName = process.env.OPENAI_MODEL ?? "gpt-4o";
-
-    // The OpenAI API key and base URL are automatically picked up from
-    // environment variables by the AI SDK:
-    // - OPENAI_API_KEY
-    // - OPENAI_BASE_URL (if you're using a custom base URL)
-    const model = openai(modelName);
+    const modelId = process.env.OPENAI_MODEL ?? "gpt-4o";
 
     const stream = streamText({
-      model,
+      model: AIgatewayProvider(modelId),
       system: systemPrompt,
       prompt: lastMessage,
       onError: (err) => {
