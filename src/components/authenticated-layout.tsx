@@ -3,19 +3,13 @@
 import Link from "next/link";
 import { cn } from "~/lib/utils";
 import { usePathname } from "next/navigation";
-import {
-  Home as HomeIcon,
-  Target,
-  MessageSquare,
-  BookOpen,
-} from "lucide-react";
+import { Home as HomeIcon, Target, BookOpen } from "lucide-react";
 
 // Navigation items with icons
 const navItems = [
   { label: "Dashboard", icon: HomeIcon, href: "/dashboard" },
   { label: "Goals", icon: Target, href: "/goals" },
-  { label: "AI Assistant", icon: MessageSquare, href: "/ai-assistant" },
-  { label: "Journal History", icon: BookOpen, href: "/journal-history" },
+  { label: "Journal", icon: BookOpen, href: "/journal" },
 ];
 
 export default function AuthenticatedLayout({

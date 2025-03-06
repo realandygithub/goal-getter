@@ -252,7 +252,7 @@ export default function DashboardPage() {
               </Card>
             </Link>
 
-            <Link href="/journal-history">
+            <Link href="/journal">
               <Card className="cursor-pointer border bg-white shadow-sm transition-all hover:shadow-md">
                 <CardContent className="flex flex-col items-center p-6 text-center">
                   <div className="mb-3 rounded-full bg-amber-100 p-3">

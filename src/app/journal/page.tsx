@@ -5,7 +5,18 @@ import { Button } from "~/components/ui/button";
 import { BookOpen, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import AuthenticatedLayout from "~/components/authenticated-layout";
+import { Suspense } from "react";
+import { Skeleton } from "~/components/ui/skeleton";
+import ActivityLogger from "~/components/activity-logger";
 
+function ActivityLoggerSkeleton() {
+  return (
+    <div className="space-y-4">
+      <Skeleton className="h-8 w-48" />
+      <Skeleton className="h-64 rounded-lg" />
+    </div>
+  );
+}
 export default function JournalHistoryPage() {
   return (
     <AuthenticatedLayout>
@@ -22,6 +33,12 @@ export default function JournalHistoryPage() {
           <p className="text-gray-600">
             Review your past journal entries and AI insights.
           </p>
+        </div>
+
+        <div className="space-y-6">
+          <Suspense fallback={<ActivityLoggerSkeleton />}>
+            <ActivityLogger />
+          </Suspense>
         </div>
 
         {/* Journal History Content */}

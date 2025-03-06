@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { Button } from "~/components/ui/button";
 import { Textarea } from "~/components/ui/textarea";
 import {
@@ -12,58 +11,11 @@ import {
 } from "~/components/ui/card";
 import { BookOpen, Send, ArrowLeft, Loader2 } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import {
-  type JournalAnalysisResponse,
-  type ErrorResponse,
-} from "~/lib/schemas";
+import { useChat } from "@ai-sdk/react";
 
 export default function NewJournalPage() {
-  const [journalEntry, setJournalEntry] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState("");
-  const router = useRouter();
-
-  const handleSubmit = async () => {
-    if (!journalEntry.trim()) return;
-
-    setIsSubmitting(true);
-    setError("");
-
-    try {
-      const response = await fetch("/api/journal-entries", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: journalEntry }),
-      });
-
-      const data = (await response.json()) as
-        | JournalAnalysisResponse
-        | ErrorResponse;
-
-      if (!response.ok) {
-        const errorData = data as ErrorResponse;
-        throw new Error(errorData.error || "Failed to submit journal entry");
-      }
-
-      // Store the analysis in sessionStorage to access it on the analysis page
-      const successData = data as JournalAnalysisResponse;
-      sessionStorage.setItem(
-        "journalAnalysis",
-        JSON.stringify(successData.analysis),
-      );
-      sessionStorage.setItem("journalContent", journalEntry);
-
-      // Redirect to the analysis page
-      router.push("/journal-analysis");
-    } catch (err) {
-      console.error("Error submitting journal entry:", err);
-      setError(
-        err instanceof Error ? err.message : "An unexpected error occurred",
-      );
-      setIsSubmitting(false);
-    }
-  };
+  const { input, handleInputChange, handleSubmit, error, status, stop } =
+    useChat();
 
   return (
     <main className="container mx-auto max-w-3xl py-8">
@@ -74,7 +26,6 @@ export default function NewJournalPage() {
         <ArrowLeft className="mr-2 h-4 w-4" />
         Back to Dashboard
       </Link>
-
       <Card className="border shadow-sm">
         <CardHeader className="border-b bg-gradient-to-r from-blue-50 to-indigo-50">
           <div className="flex items-center space-x-2">
@@ -94,13 +45,13 @@ export default function NewJournalPage() {
           <Textarea
             placeholder="Today I worked on..."
             className="min-h-[200px] resize-none"
-            value={journalEntry}
-            onChange={(e) => setJournalEntry(e.target.value)}
+            value={input}
+            onChange={handleInputChange}
           />
 
           {error && (
             <div className="mt-4 rounded-md bg-red-50 p-4 text-sm text-red-800">
-              <p className="font-medium">Error: {error}</p>
+              <p className="font-medium">Error: {JSON.stringify(error)}</p>
             </div>
           )}
 
@@ -117,10 +68,15 @@ export default function NewJournalPage() {
         <CardFooter className="border-t bg-gray-50 px-6 py-4">
           <Button
             className="ml-auto flex items-center"
-            onClick={handleSubmit}
-            disabled={isSubmitting || !journalEntry.trim()}
+            onClick={() => {
+              if (status === "submitted" || status === "streaming") {
+                stop();
+              } else {
+                handleSubmit();
+              }
+            }}
           >
-            {isSubmitting ? (
+            {status === "submitted" || status === "streaming" ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Analyzing...
