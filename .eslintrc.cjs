@@ -9,8 +9,6 @@ const config = {
     "next/core-web-vitals",
     "plugin:@typescript-eslint/recommended-type-checked",
     "plugin:@typescript-eslint/stylistic-type-checked",
-    "plugin:import/recommended",
-    "plugin:import/typescript",
   ],
   rules: {
     "@typescript-eslint/array-type": "off",
@@ -49,13 +47,6 @@ const config = {
         drizzleObjectName: ["db", "ctx.db"],
       },
     ],
-  },
-  "settings": {
-    "import/resolver": {
-      "typescript": {
-        "alwaysTryTypes": true
-      }
-    }
   },
 };
 module.exports = config;

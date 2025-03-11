@@ -15,9 +15,9 @@ import { Send } from "lucide-react";
 import { useChat } from "@ai-sdk/react";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "~/components/ui/avatar";
-import VoiceRecorderButton from "./voice-recorder-button";
 import { type Message as DBMessage } from "~/server/db/types";
 import { convertToUIMessages } from "~/lib/utils";
+import VoiceRecorderButton from "./voice-recorder-button";
 export default function ActivityLogger({
   chatId,
   initialMessages,

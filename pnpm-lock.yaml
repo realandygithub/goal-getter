@@ -139,15 +139,9 @@ devDependencies:
   eslint-config-next:
     specifier: ^15.0.1
     version: 15.2.0(eslint@8.57.1)(typescript@5.8.2)
-  eslint-import-resolver-typescript:
-    specifier: ^3.8.4
-    version: 3.8.4(eslint-plugin-import@2.31.0)(eslint@8.57.1)
   eslint-plugin-drizzle:
     specifier: ^0.2.3
     version: 0.2.3(eslint@8.57.1)
-  eslint-plugin-import:
-    specifier: ^2.31.0
-    version: 2.31.0(@typescript-eslint/parser@8.26.0)(eslint-import-resolver-typescript@3.8.4)(eslint@8.57.1)
   happy-dom:
     specifier: ^17.1.9
     version: 17.1.9
