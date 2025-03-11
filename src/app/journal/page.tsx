@@ -1,5 +1,3 @@
-"use client";
-
 import { Card, CardContent } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
 import { BookOpen, ArrowRight } from "lucide-react";
@@ -8,6 +6,12 @@ import AuthenticatedLayout from "~/components/authenticated-layout";
 import { Suspense } from "react";
 import { Skeleton } from "~/components/ui/skeleton";
 import ActivityLogger from "~/components/activity-logger";
+import { cookies } from "next/headers";
+import {
+  createNewChat,
+  getChatsByCurrentUserId,
+  getMessagesByChatId,
+} from "~/server/db/actions";
 
 function ActivityLoggerSkeleton() {
   return (
@@ -17,7 +21,27 @@ function ActivityLoggerSkeleton() {
     </div>
   );
 }
-export default function JournalHistoryPage() {
+export default async function JournalHistoryPage() {
+  const chats = await getChatsByCurrentUserId();
+  const cookieStore = await cookies();
+  const currentChatId = cookieStore.get("currentChatId")?.value;
+  const initialMessages = currentChatId
+    ? await getMessagesByChatId({ id: currentChatId })
+    : [];
+  const handleCreateNewJournal = async () => {
+    "use server";
+    const cookieStore = await cookies();
+
+    const newChat = await createNewChat();
+    if (!newChat?.length) {
+      throw new Error("Failed to save chat, no id returned");
+    }
+    const chatId = newChat[0]?.chatId;
+    if (!chatId) {
+      throw new Error("Chat ID is undefined");
+    }
+    cookieStore.set("currentChatId", chatId);
+  };
   return (
     <AuthenticatedLayout>
       <div className="space-y-6">
@@ -37,23 +61,37 @@ export default function JournalHistoryPage() {
 
         <div className="space-y-6">
           <Suspense fallback={<ActivityLoggerSkeleton />}>
-            <ActivityLogger />
+            <form action={handleCreateNewJournal}>
+              <Button>Create New Journal</Button>
+            </form>
+            {currentChatId && (
+              <ActivityLogger
+                chatId={currentChatId}
+                initialMessages={initialMessages}
+              />
+            )}
           </Suspense>
         </div>
 
         {/* Journal History Content */}
         <div className="space-y-4">
-          {[1, 2, 3].map((i) => (
-            <Card key={i} className="border bg-white shadow-sm">
+          {chats.map((chat) => (
+            <Card key={chat.id} className="border bg-white shadow-sm">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <h3 className="text-base font-medium">
                     Daily Reflection -{" "}
-                    {new Date(
-                      Date.now() - i * 24 * 60 * 60 * 1000,
-                    ).toLocaleDateString()}
+                    {new Date(chat.createdAt).toLocaleDateString()}
                   </h3>
-                  <span className="text-sm text-gray-500">{`${i} day${i > 1 ? "s" : ""} ago`}</span>
+                  <span className="text-sm text-gray-500">
+                    {(() => {
+                      const days = Math.floor(
+                        (Date.now() - new Date(chat.createdAt).getTime()) /
+                          (1000 * 60 * 60 * 24),
+                      );
+                      return `${days} day${days > 1 ? "s" : ""} ago`;
+                    })()}
+                  </span>
                 </div>
                 <p className="mt-2 text-sm text-gray-600">
                   Led team standup, completed code review for authentication

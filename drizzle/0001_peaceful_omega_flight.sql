@@ -1,0 +1,1 @@
+ALTER TABLE "goal-getter_message" ALTER COLUMN "role" SET DATA TYPE varchar;
