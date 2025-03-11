@@ -1,10 +1,4 @@
 import { z } from "zod";
-import type { InferSelectModel } from "drizzle-orm";
-import type { goals, activities } from "~/server/db/schema";
-
-// Use Drizzle's type inference for database models
-export type DbGoal = InferSelectModel<typeof goals>;
-export type DbActivity = InferSelectModel<typeof activities>;
 
 // Goal progress analysis schema (for AI responses)
 export const goalProgressSchema = z.object({

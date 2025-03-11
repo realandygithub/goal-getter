@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import React, { useState } from "react";
 import {
   Card,
   CardContent,
@@ -11,287 +11,133 @@ import {
 } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
 import { Textarea } from "~/components/ui/textarea";
-import { Mic, Send, Loader2, MicOff } from "lucide-react";
+import { Send } from "lucide-react";
 import { useChat } from "@ai-sdk/react";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "~/components/ui/avatar";
-
-interface SpeechRecognitionResult {
-  transcript: string;
-  isFinal: boolean;
-}
-
-interface SpeechRecognitionEvent extends Event {
-  resultIndex: number;
-  results: SpeechRecognitionResult[][];
-}
-
-interface SpeechRecognition extends EventTarget {
-  continuous: boolean;
-  interimResults: boolean;
-  start(): void;
-  stop(): void;
-  onresult: ((event: SpeechRecognitionEvent) => void) | null;
-  onerror: ((event: { error: string }) => void) | null;
-  onend: (() => void) | null;
-}
-
-declare global {
-  interface Window {
-    webkitSpeechRecognition: new () => SpeechRecognition;
-    SpeechRecognition: new () => SpeechRecognition;
-  }
-}
-
-export default function ActivityLogger() {
-  const [isRecording, setIsRecording] = useState(false);
-  const [transcript, setTranscript] = useState("");
-  const [isTranscribing, setIsTranscribing] = useState(false);
+import VoiceRecorderButton from "./voice-recorder-button";
+import { type Message as DBMessage } from "~/server/db/types";
+import { convertToUIMessages } from "~/lib/utils";
+export default function ActivityLogger({
+  chatId,
+  initialMessages,
+}: {
+  chatId: string;
+  initialMessages: DBMessage[];
+}) {
   const [localInput, setLocalInput] = useState("");
-  const recognitionRef = useRef<SpeechRecognition | null>(null);
-
   const { messages, append, status } = useChat({
     api: "/api/analyze-activity",
-    initialMessages: [
-      {
-        id: "welcome",
-        role: "assistant",
-        content:
-          "Hi there! Tell me what you've accomplished today, and I'll help analyze how it aligns with your goals.",
-      },
-    ],
+    initialMessages: convertToUIMessages(initialMessages),
   });
 
   // Check if the AI is currently processing or streaming a response
   const isProcessing = status === "submitted" || status === "streaming";
 
-  useEffect(() => {
-    if ("webkitSpeechRecognition" in window || "SpeechRecognition" in window) {
-      const SpeechRecognitionConstructor =
-        window.webkitSpeechRecognition || window.SpeechRecognition;
-      recognitionRef.current = new SpeechRecognitionConstructor();
+  // Fixed: Made async and added proper promise handling
+  const submitText = async () => {
+    if (!localInput.trim()) return;
 
-      if (recognitionRef.current) {
-        recognitionRef.current.continuous = true;
-        recognitionRef.current.interimResults = true;
+    // Fixed: Added await to handle the promise
+    await append({
+      role: "user",
+      content: localInput,
+    });
 
-        recognitionRef.current.onresult = (event: SpeechRecognitionEvent) => {
-          let interimTranscript = "";
-          let finalTranscript = "";
-
-          for (let i = event.resultIndex; i < event.results.length; ++i) {
-            const result = event.results[i];
-            if (result?.[0]?.isFinal) {
-              finalTranscript += result[0].transcript;
-            } else if (result?.[0]?.transcript) {
-              interimTranscript += result[0].transcript;
-            }
-          }
-
-          setTranscript(finalTranscript || interimTranscript);
-        };
-
-        recognitionRef.current.onerror = (event: { error: string }) => {
-          console.error("Speech recognition error", event.error);
-          setIsRecording(false);
-          setIsTranscribing(false);
-        };
-
-        recognitionRef.current.onend = () => {
-          setIsRecording(false);
-          setIsTranscribing(false);
-        };
-      }
-    }
-
-    return () => {
-      if (recognitionRef.current) {
-        recognitionRef.current.stop();
-      }
-    };
-  }, []);
-
-  const toggleRecording = () => {
-    if (!recognitionRef.current) {
-      alert("Speech recognition is not supported in your browser.");
-      return;
-    }
-
-    if (isRecording) {
-      recognitionRef.current.stop();
-      setIsRecording(false);
-      setIsTranscribing(false);
-    } else {
-      setTranscript("");
-      setIsRecording(true);
-      setIsTranscribing(true);
-      recognitionRef.current.start();
-    }
+    setLocalInput("");
   };
 
-  const submitText = () => {
-    const textToSubmit = isTranscribing ? transcript : localInput;
-
-    if (textToSubmit.trim()) {
-      // Use append to add a user message and handle the Promise
-      append({
-        role: "user",
-        content: textToSubmit,
-      }).catch((error) => {
-        console.error("Error sending message:", error);
-      });
-
-      // Clear the input
-      if (isTranscribing) {
-        setTranscript("");
-        setIsTranscribing(false);
-      } else {
-        setLocalInput("");
-      }
-    }
-  };
-
-  const handleVoiceSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    submitText();
-  };
-
+  // Fixed: Changed to handle button click events
   const handleSendClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
-    submitText();
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      submitText();
-    }
+    // Fixed: Using void to explicitly ignore the promise
+    void submitText();
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setLocalInput(e.target.value);
   };
 
+  const handleTranscriptChange = (transcript: string) => {
+    setLocalInput(transcript);
+  };
+
+  // Handle key press events (e.g., Enter to submit)
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      void submitText();
+    }
+  };
+
   return (
-    <div className="space-y-6">
-      <Card className="flex min-h-[500px] flex-col">
-        <CardHeader>
-          <CardTitle>Log Your Activities</CardTitle>
-          <CardDescription>
-            Tell the AI what you&apos;ve accomplished today
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex-grow overflow-hidden">
-          <ScrollArea className="h-[300px] pr-4">
-            <div className="space-y-4">
-              {messages.map((message) => (
+    <Card className="w-full">
+      <CardHeader>
+        <CardTitle>Activity Logger</CardTitle>
+        <CardDescription>
+          Record what you&apos;ve accomplished today
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <ScrollArea className="h-[400px] pr-4">
+          <div className="flex flex-col space-y-4">
+            {messages.map((message) => (
+              <div
+                key={message.id}
+                className={`flex ${
+                  message.role === "assistant" ? "justify-start" : "justify-end"
+                }`}
+              >
                 <div
-                  key={message.id}
-                  className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
+                  className={`flex max-w-[80%] items-start space-x-2 rounded-lg p-3 ${
+                    message.role === "assistant"
+                      ? "bg-muted"
+                      : "bg-primary text-primary-foreground"
+                  }`}
                 >
-                  <div
-                    className={`flex max-w-[80%] gap-3 ${message.role === "user" ? "flex-row-reverse" : ""}`}
-                  >
+                  {message.role === "assistant" && (
                     <Avatar className="h-8 w-8">
-                      <AvatarFallback>
-                        {message.role === "user" ? "U" : "AI"}
-                      </AvatarFallback>
+                      <AvatarFallback>AI</AvatarFallback>
                     </Avatar>
-                    <div
-                      className={`rounded-lg px-4 py-2 ${
-                        message.role === "user"
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-muted"
-                      }`}
-                    >
-                      {message.content}
-                    </div>
+                  )}
+                  <div className="space-y-1">
+                    <p className="text-sm">{message.content}</p>
                   </div>
                 </div>
-              ))}
-              {isTranscribing && transcript && (
-                <div className="flex justify-end">
-                  <div className="flex max-w-[80%] flex-row-reverse gap-3">
-                    <Avatar className="h-8 w-8">
-                      <AvatarFallback>U</AvatarFallback>
-                    </Avatar>
-                    <div className="rounded-lg bg-primary/80 px-4 py-2 text-primary-foreground">
-                      {transcript}...
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </ScrollArea>
-        </CardContent>
-        <CardFooter>
-          <form onSubmit={handleVoiceSubmit} className="w-full space-y-4">
-            <div className="flex gap-2">
-              <Textarea
-                placeholder="Type what you've accomplished today..."
-                value={isTranscribing ? transcript : localInput}
-                onChange={isTranscribing ? undefined : handleInputChange}
-                onKeyDown={handleKeyDown}
-                className="min-h-[80px]"
-                disabled={isTranscribing || isProcessing}
+              </div>
+            ))}
+          </div>
+        </ScrollArea>
+      </CardContent>
+      <CardFooter>
+        <div className="flex w-full items-end space-x-2">
+          <div className="relative flex-1">
+            <Textarea
+              placeholder="Describe what you've accomplished today..."
+              value={localInput}
+              onChange={handleInputChange}
+              onKeyDown={handleKeyDown}
+              rows={3}
+              className="resize-none pr-10"
+            />
+            <div className="absolute bottom-2 right-2">
+              <VoiceRecorderButton
+                onTranscriptChange={handleTranscriptChange}
+                isDisabled={isProcessing}
               />
             </div>
-            <div className="flex justify-between">
-              <Button
-                type="button"
-                variant={isRecording ? "destructive" : "outline"}
-                size="icon"
-                onClick={toggleRecording}
-                disabled={isProcessing}
-              >
-                {isRecording ? (
-                  <MicOff className="h-5 w-5" />
-                ) : (
-                  <Mic className="h-5 w-5" />
-                )}
-              </Button>
-              <div className="space-x-2">
-                {isTranscribing && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      if (recognitionRef.current) {
-                        recognitionRef.current.stop();
-                      }
-                      setIsTranscribing(false);
-                      setIsRecording(false);
-                    }}
-                    disabled={isProcessing}
-                  >
-                    Cancel
-                  </Button>
-                )}
-                <Button
-                  type="button"
-                  disabled={
-                    isProcessing ||
-                    (isTranscribing ? !transcript.trim() : !localInput.trim())
-                  }
-                  onClick={handleSendClick}
-                >
-                  {isProcessing ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Processing...
-                    </>
-                  ) : (
-                    <>
-                      <Send className="mr-2 h-4 w-4" />
-                      Send
-                    </>
-                  )}
-                </Button>
-              </div>
-            </div>
-          </form>
-        </CardFooter>
-      </Card>
-    </div>
+          </div>
+          {/* Fixed: Changed onClick to use handleSendClick */}
+          <Button
+            type="button"
+            disabled={!localInput.trim() || isProcessing}
+            onClick={handleSendClick}
+          >
+            <Send className="mr-2 h-4 w-4" />
+            Send
+          </Button>
+        </div>
+      </CardFooter>
+    </Card>
   );
 }

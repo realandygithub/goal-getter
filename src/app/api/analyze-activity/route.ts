@@ -1,6 +1,23 @@
-import { type Message as AIMessage, streamText } from "ai";
+import {
+  type Message,
+  createDataStreamResponse,
+  smoothStream,
+  streamText,
+} from "ai";
 import { NextResponse } from "next/server";
 import { AIgatewayProvider } from "../custom-provider/custom-provider";
+import {
+  getChatById,
+  getCurrentUser,
+  saveChat,
+  saveMessages,
+} from "~/server/db/actions";
+import {
+  generateTitleFromUserMessage,
+  getMostRecentUserMessage,
+  sanitizeResponseMessages,
+} from "~/lib/utils";
+import { v4 as uuidv4 } from "uuid";
 
 // Check if OpenAI API key is configured
 if (!process.env.OPENAI_API_KEY) {
@@ -17,13 +34,9 @@ if (customBaseUrl) {
 // The openai function from @ai-sdk/openai automatically uses OPENAI_BASE_URL
 // from environment variables if it's set
 
-interface Message extends AIMessage {
-  id: string;
-}
-
 // Mock goals data - in a real app, this would come from your database
 const userGoals = [
-  "Complete Project Documentation for Q2 project",
+  "Finish journal CRUD functionality features",
   "Conduct at least 5 client meetings this week",
   "Review and approve 10 pull requests",
   "Complete the leadership training module",
@@ -31,23 +44,38 @@ const userGoals = [
 
 export async function POST(req: Request) {
   try {
-    // Ensure API key is available
-    if (!process.env.OPENAI_API_KEY) {
-      return NextResponse.json(
-        { error: "OpenAI API key is not configured" },
-        { status: 500 },
-      );
-    }
+    const { id, messages } = (await req.json()) as {
+      id: string;
+      messages: Array<Message>;
+    };
 
-    const { messages } = (await req.json()) as { messages: Message[] };
-    const lastMessage = messages[messages.length - 1]?.content;
+    const user = await getCurrentUser();
+
+    if (!user || user.banned || user.locked) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const lastMessage = getMostRecentUserMessage(messages);
 
     if (!lastMessage) {
-      return NextResponse.json(
-        { error: "No message content provided" },
-        { status: 400 },
-      );
+      return new Response("No last user message found", { status: 400 });
     }
+    const chat = await getChatById({ id });
+
+    if (!chat) {
+      const title = await generateTitleFromUserMessage({
+        message: lastMessage,
+      });
+
+      await saveChat({ id, userId: user.id, title });
+    } else {
+      if (chat.userId !== user.id) {
+        return new Response("Unauthorized", { status: 401 });
+      }
+    }
+
+    await saveMessages({
+      messages: [{ ...lastMessage, createdAt: new Date(), chatId: id }],
+    });
 
     // Create a system prompt that includes the user's goals
     const systemPrompt = `
@@ -66,25 +94,54 @@ export async function POST(req: Request) {
 
     const modelId = process.env.OPENAI_MODEL ?? "gpt-4o";
 
-    const stream = streamText({
-      model: AIgatewayProvider(modelId),
-      system: systemPrompt,
-      prompt: lastMessage,
-      onError: (err) => {
-        const errorMessage =
-          err instanceof Error ? err.message : JSON.stringify(err);
-        console.error("Error in activity analysis:", errorMessage);
+    return createDataStreamResponse({
+      execute: async (dataStream) => {
+        const result = streamText({
+          model: AIgatewayProvider(modelId),
+          system: systemPrompt,
+          messages,
+          maxSteps: 5,
+          experimental_activeTools: [],
+          experimental_transform: smoothStream({ chunking: "word" }),
+          experimental_generateMessageId: uuidv4,
+          tools: {},
+          onFinish: async ({ response, reasoning }) => {
+            if (user?.id) {
+              try {
+                const sanitizedResponseMessages = sanitizeResponseMessages({
+                  messages: response.messages,
+                  reasoning,
+                });
+
+                await saveMessages({
+                  messages: sanitizedResponseMessages.map((message) => {
+                    return {
+                      id: message.id,
+                      chatId: id,
+                      role: message.role,
+                      content: message.content,
+                      createdAt: new Date(),
+                    };
+                  }),
+                });
+              } catch (error) {
+                console.error("Failed to save chat", error);
+              }
+            }
+          },
+        });
+
+        await result.consumeStream();
+
+        result.mergeIntoDataStream(dataStream, {
+          sendReasoning: true,
+        });
+      },
+      onError: () => {
+        return "Oops, an error occurred!";
       },
     });
-
-    return stream.toDataStreamResponse();
-  } catch (err) {
-    const errorMessage =
-      err instanceof Error ? err.message : JSON.stringify(err);
-    console.error("Error in activity analysis:", errorMessage);
-    return NextResponse.json(
-      { error: "There was an error processing your request" },
-      { status: 500 },
-    );
+  } catch (error) {
+    return NextResponse.json({ error }, { status: 400 });
   }
 }
